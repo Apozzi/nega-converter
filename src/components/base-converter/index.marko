@@ -1,0 +1,261 @@
+import { DIGITS, BASE_OPTIONS, getBaseDisplayName } from "./base-converter-utils"; 
+import './style.scss'
+
+class {
+    state = {
+        decimalValue: "10",
+        baseValue: "A", 
+        base: 16,
+        error: null,
+        allowedCharsRegex: /^[0-9A-F]$/i 
+    }
+
+    onCreate() {
+        this.calculateBaseValue(this.state.decimalValue, this.state.base);
+        this.updateAllowedCharsRegex(this.state.base);
+    }
+
+    convertDecimalToBase(dec, base) {
+        if (isNaN(dec)) return { error: "Decimal inválido" };
+        if (base > 1) {
+            return this.decimalToPositiveBase(dec, base);
+        } else if (base < -1) {
+            return this.decimalToNegativeBase(dec, base);
+        } else {
+            return { error: `Base ${base} inválida` };
+        }
+    }
+
+    decimalToPositiveBase(dec, base) {
+        if (dec === 0) return { value: "0" };
+
+        let result = "";
+        let isNegative = dec < 0;
+        if (isNegative) dec = -dec;
+
+        while (dec > 0) {
+            let remainder = dec % base;
+            result = DIGITS[remainder] + result;
+            dec = Math.floor(dec / base);
+        }
+
+        return { value: (isNegative ? "-" : "") + result };
+    }
+
+    decimalToNegativeBase(dec, base) {
+        if (dec === 0) return { value: "0" };
+        if (base >= -1) return { error: `Base ${base} inválida para negabase` };
+
+        let result = "";
+        let currentDec = dec;
+        const absBase = Math.abs(base);
+
+        while (currentDec !== 0) {
+            let remainder = currentDec % base;
+
+            if (remainder < 0) {
+                remainder += absBase;
+            }
+            if (remainder < 0 || remainder >= absBase) {
+                 console.error("Erro de cálculo interno: Resto inválido", { currentDec, base, remainder });
+                 return { error: "Erro interno no cálculo da negabase." };
+            }
+            result = DIGITS[remainder] + result;
+            currentDec = (currentDec - remainder) / base;
+            if (!Number.isInteger(currentDec)) {
+                 console.error("Erro de cálculo interno: Quociente não inteiro", { dec, base, remainder, calculatedQuotient: currentDec });
+                 return { error: "Erro interno no cálculo do quociente." };
+            }
+        }
+        return { value: result };
+    }
+
+
+    convertBaseToDecimal(baseStr, base) {
+        baseStr = baseStr.toUpperCase();
+         if (base > 1) {
+            return this.positiveBaseToDecimal(baseStr, base);
+        } else if (base < -1) {
+            return this.negativeBaseToDecimal(baseStr, base);
+        } else {
+            return { error: `Base ${base} inválida` };
+        }
+    }
+
+    positiveBaseToDecimal(baseStr, base) {
+        let isNegative = false;
+        if (baseStr.startsWith('-')) {
+            isNegative = true;
+            baseStr = baseStr.substring(1);
+        }
+
+        let decimal = 0;
+        let power = 0;
+
+        for (let i = baseStr.length - 1; i >= 0; i--) {
+            const char = baseStr[i];
+            const digitValue = DIGITS.indexOf(char);
+
+            if (digitValue === -1 || digitValue >= base) return { error: `Dígito '${char}' inválido para base ${base}` };
+            decimal += digitValue * Math.pow(base, power);
+            power++;
+        }
+         return { value: (isNegative ? -decimal : decimal).toString() };
+    }
+
+    negativeBaseToDecimal(baseStr, base) {
+        let decimal = 0;
+        let power = 0;
+
+         for (let i = baseStr.length - 1; i >= 0; i--) {
+            const char = baseStr[i];
+            const digitValue = DIGITS.indexOf(char);
+            if (digitValue === -1 || digitValue >= Math.abs(base)) return { error: `Dígito '${char}' inválido para base ${base}` };
+
+            decimal += digitValue * Math.pow(base, power);
+            power++;
+        }
+        return { value: decimal.toString() };
+    }
+
+    handleBaseChange(event) {
+        const newBase = parseInt(event.target.value, 10);
+        this.setState('base', newBase);
+        this.updateAllowedCharsRegex(newBase);
+        this.calculateBaseValue(this.state.decimalValue, newBase);
+    }
+
+    handleDecimalInput(event) {
+        const newDecimalStr = event.target.value;
+        if (!/^-?\d*\.?\d*$/.test(newDecimalStr) && newDecimalStr !== "-") return;
+
+        this.setState('decimalValue', newDecimalStr);
+
+        if (newDecimalStr === '-' || newDecimalStr === '' || newDecimalStr.endsWith('.')) {
+             this.setState('baseValue', '');
+             this.setState('error', null);
+             return;
+        }
+        this.calculateBaseValue(newDecimalStr, this.state.base);
+
+    }
+
+    handleBaseInput(event) {
+        const rawValue = event.target.value.toUpperCase();
+        let filteredValue = "";
+        let isValid = true;
+        for (const char of rawValue) {
+             if (this.state.allowedCharsRegex.test(char)) {
+                 filteredValue += char;
+             } else {
+                 isValid = false; 
+             }
+        }
+        if (this.state.base > 1 && rawValue.startsWith('-')) {
+            filteredValue = "-";
+            for (let i = 1; i < rawValue.length; i++) {
+                const char = rawValue[i];
+                if (this.state.allowedCharsRegex.test(char)) {
+                    filteredValue += char;
+                } else {
+                  isValid = false;
+                }
+            }
+        } else if (rawValue.startsWith('-')) {
+            isValid = false;
+            filteredValue = filteredValue.startsWith('-') ? filteredValue.substring(1) : filteredValue;
+        }
+        this.setState('baseValue', filteredValue);
+        this.calculateDecimalValue(filteredValue, this.state.base);
+
+        if (!isValid && event.target.value !== filteredValue) event.target.value = filteredValue; 
+    }
+
+    calculateBaseValue(decimalStr, base) {
+        const dec = parseFloat(decimalStr); 
+        if (isNaN(dec) || !Number.isInteger(dec)) { 
+             if (decimalStr.trim() !== '' && decimalStr !== '-') {
+                this.setState('error', 'Valor decimal deve ser um inteiro.');
+             } else {
+                this.setState('error', null);
+             }
+            this.setState('baseValue', '');
+            return;
+        }
+
+        const result = this.convertDecimalToBase(dec, base);
+        if (result.error) {
+            this.setState('error', result.error);
+            this.setState('baseValue', 'Erro');
+        } else {
+            this.setState('error', null);
+            this.setState('baseValue', result.value);
+        }
+    }
+
+     calculateDecimalValue(baseStr, base) {
+         if (baseStr.trim() === '' || (baseStr === '-' && base > 1)) {
+             this.setState('decimalValue', '');
+             this.setState('error', null);
+             return;
+         }
+
+        const result = this.convertBaseToDecimal(baseStr, base);
+        if (result.error) {
+            this.setState('error', result.error);
+        } else {
+            this.setState('error', null);
+            this.setState('decimalValue', result.value);
+        }
+    }
+
+    updateAllowedCharsRegex(base) {
+        const absBase = Math.abs(base);
+        const allowed = DIGITS.substring(0, absBase);
+        const regex = new RegExp(`^[${allowed}]$`, 'i');
+        this.setState('allowedCharsRegex', regex);
+    }
+}
+
+
+<div.converter-container>
+    <h1.converter-title>Conversor de Bases Numéricas</h1>
+    <div.base-selector>
+      <label for="base-select">Converter para Base:</label>
+      <select id="base-select" value=state.base onChange('handleBaseChange')>
+        <for|baseNum| of=BASE_OPTIONS>
+          <option value=baseNum>
+            ${baseNum} ${getBaseDisplayName(baseNum)}
+          </option>
+        </for>
+      </select>
+    </div>
+
+    <div.inputs-area>
+      <div.input-card>
+        <label for="decimal-input">Decimal (Base 10)</label>
+        <input
+          id="decimal-input"
+          type="text"
+          inputmode="numeric"
+          value=state.decimalValue
+          onInput('handleDecimalInput')
+          placeholder="Ex: 123 ou -45"
+        />
+      </div>
+
+      <div.input-card>
+        <label for="base-input">Base ${state.base}</label>
+        <input
+          id="base-input"
+          type="text"
+          value=state.baseValue
+          onInput('handleBaseInput')
+          placeholder=`Valor na base ${state.base}`
+          spellcheck="false"
+          autocomplete="off"
+        />
+      </div>
+    </div>
+</div.converter-container>
+

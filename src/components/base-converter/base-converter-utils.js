@@ -1,0 +1,25 @@
+export const DIGITS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
+const options = [];
+for (let i = -32; i <= 32; i++) {
+    if (i !== 0 && i !== 1 && i !== -1) {
+        options.push(i);
+    }
+}
+export const BASE_OPTIONS = options;
+
+
+export function getBaseDisplayName(baseNum) {
+    const baseNames = {
+      16: "(Hexadecimal)",
+      10: "(Decimal)",
+      8: "(Octal)",
+      2: "(Binário)",
+      "-2": "(Negabinário)",
+      "-8": "(Negaoctal)",
+      "-10": "(Negadecimal)",
+      "-16": "(Negahexadecimal)"
+    };
+    return baseNames[baseNum] || "";
+  }
+  
