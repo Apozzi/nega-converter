@@ -11,14 +11,18 @@ export const BASE_OPTIONS = options;
 
 export function getBaseDisplayName(baseNum) {
     const baseNames = {
+      32: "(Duotrigesimal)",
       16: "(Hexadecimal)",
       10: "(Decimal)",
       8: "(Octal)",
-      2: "(Binário)",
-      "-2": "(Negabinário)",
+      3: "(Ternary)",
+      2: "(Binary)",
+      "-2": "(Negabinary)",
+      "-2": "(Negaternary)",
       "-8": "(Negaoctal)",
       "-10": "(Negadecimal)",
-      "-16": "(Negahexadecimal)"
+      "-16": "(Negahexadecimal)",
+      "-32": "(Negaduotrigesimal)"
     };
     return baseNames[baseNum] || "";
   }

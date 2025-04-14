@@ -1,12 +1,12 @@
 :root {
-  --primary-color: #6e4ce0; 
-  --secondary-color: #f0f0f0;
+  --primary-color: #f7f0f1; 
+  --secondary-color: #1d1d1d;
   --text-color: #333;
   --border-color: #ccc;
   --error-color: #d9534f;
-  --input-bg: #fff;
+  --input-bg: #3f3e3e;
   --input-focus-border: var(--primary-color);
-  --card-bg: #fff;
+  --card-bg: #2C2C2C;
   --card-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
   --border-radius: 8px;
 }
@@ -21,7 +21,7 @@
   background-color: var(--secondary-color);
   min-height: 100vh;
   box-sizing: border-box;
-  color: var(--text-color);
+  color: var(--primary-color);
 }
 
 .converter-title {
@@ -32,7 +32,7 @@
 
 .base-selector {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
   gap: 0.5rem;
 }
@@ -43,12 +43,14 @@
 
 .base-selector select {
   padding: 0.6em 1em;
-  border: 1px solid var(--border-color);
+  border: none;
   border-radius: var(--border-radius);
   background-color: var(--input-bg);
   font-size: 1em;
   min-width: 80px;
   text-align: center;
+
+  color: white;
   cursor: pointer;
 }
   .base-selector select:focus {
@@ -63,11 +65,12 @@
   justify-content: center;
   gap: 2rem; 
   width: 100%;
-  max-width: 700px;
+  max-width: 1265px;
+  flex-direction: column;
 }
 
 .input-card {
-  flex: 1 1 250px;
+  flex: 1 1 190px;
   background-color: var(--card-bg);
   padding: 1.5rem;
   border-radius: var(--border-radius);
@@ -85,18 +88,21 @@
   text-transform: uppercase;
 }
 
-.input-card input {
+.input-card textarea {
+  border: none;
+  color: white;
+  font-size: 23px !important;
   padding: 0.8em 1em;
-  border: 1px solid var(--border-color);
   border-radius: var(--border-radius);
   font-size: 1.1em;
   background-color: var(--input-bg);
   width: 100%;
+  height: 160px;
   box-sizing: border-box; 
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
-.input-card input:focus {
+.input-card textarea:focus {
   outline: none;
   border-color: var(--input-focus-border);
   box-shadow: 0 0 0 3px rgba(110, 76, 224, 0.3); 
