@@ -59,13 +59,11 @@ class {
                 remainder += absBase;
             }
             if (remainder < 0 || remainder >= absBase) {
-                console.error("Erro de cálculo interno: Resto inválido", { currentDec, base, remainder });
                 return { error: "Erro interno no cálculo da negabase." };
             }
             result = DIGITS[remainder] + result;
             currentDec = (currentDec - remainder) / base;
             if (!Number.isInteger(currentDec)) {
-                console.error("Erro de cálculo interno: Quociente não inteiro", { dec, base, remainder, calculatedQuotient: currentDec });
                 return { error: "Erro interno no cálculo do quociente." };
             }
         }
@@ -244,33 +242,57 @@ class {
         const regex = new RegExp(`^[${allowed}]$`, 'i');
         this.setState('allowedCharsRegex', regex);
     }
+
+    handleSwapBases() {
+        const tempFromBase = this.state.fromBase;
+        const tempToBase = this.state.toBase;
+        const tempInputValue = this.state.inputValue;
+        const tempOutputValue = this.state.outputValue;
+
+        this.state.fromBase = tempToBase;
+        this.state.toBase = tempFromBase;
+        this.state.inputValue = tempOutputValue;
+        this.state.outputValue = tempInputValue;
+        this.state.error = null;
+        this.state.activeInput = this.state.activeInput === 'from' ? 'to' : 'from';
+        this.update();
+    }
 }
 
 
 <div.converter-container>
     <h1.converter-title>Conversor de Bases Numéricas</h1>
     <div.base-selector>
-      <label for="base-select">Converter de</label>
-      <select id="from-base-select" value=state.fromBase onChange('handleFromBaseChange')>
-        <for|baseNum| of=BASE_OPTIONS>
-            <option value=baseNum selected=(baseNum === state.fromBase)>
-                ${baseNum} ${getBaseDisplayName(baseNum)}
-            </option>
-        </for>
-    </select>
-      <label for="base-select">para</label>
-      <select id="to-base-select" value=state.toBase onChange('handleToBaseChange')>
-        <for|baseNum| of=BASE_OPTIONS>
-            <option value=baseNum selected=(baseNum === state.toBase)>
-                ${baseNum} ${getBaseDisplayName(baseNum)}
-            </option>
-        </for>
-    </select>
+        <label for="base-select">Converter de</label>
+        <select id="from-base-select" value=state.fromBase onChange('handleFromBaseChange')>
+            <for|baseNum| of=BASE_OPTIONS>
+                <option value=baseNum selected=(baseNum === state.fromBase)>
+                   Base ${baseNum} (${getBaseDisplayName(baseNum)})
+                </option>
+            </for>
+        </select>
+        <label for="base-select">para</label>
+        <select id="to-base-select" value=state.toBase onChange('handleToBaseChange')>
+            <for|baseNum| of=BASE_OPTIONS>
+                <option value=baseNum selected=(baseNum === state.toBase)>
+                    Base ${baseNum} ${getBaseDisplayName(baseNum, true)}
+                </option>
+            </for>
+        </select>
+
+        <button
+            id="swap-button"
+            class="swap-button"
+            onClick('handleSwapBases')
+            aria-label="Inverter bases e valores"
+            title="Inverter bases e valores">
+                ⇄
+        </button>
     </div>
 
     <div.inputs-area>
       <div.input-card>
-        <label for="from-input">Base ${state.fromBase}</label>
+        <label for="from-input">${getBaseDisplayName(state.fromBase) || (`Base ${state.fromBase}`)}</label>
         <textarea
             id="from-input"
             key="from-input"
@@ -284,7 +306,7 @@ class {
       </div>
 
       <div.input-card>
-        <label for="to-input">Base ${state.toBase}</label>
+        <label for="to-input">${getBaseDisplayName(state.toBase) || (`Base ${state.toBase}`)}</label>
         <textarea
             id="to-input"
             key="to-input"
