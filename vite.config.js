@@ -6,6 +6,7 @@ export default defineConfig({
   plugins: [
     marko({
       adapter: staticAdapter(),
+      base: '/nega-converter/',
     }),
   ],
 });
