@@ -1,3 +1,5 @@
+import { formatComplex } from "../components/base-converter/base-converter-utils";
+
 export const i18n = {
     defaultLocale: 'en',
     currentLocale: null,
