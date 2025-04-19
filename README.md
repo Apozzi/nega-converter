@@ -22,6 +22,14 @@ A mathematical tool that converts numbers between unconventional numeral systems
 | Negative Integer  | -2, -10, -16     | 0 to (abs(base)-1) |
 | Complex           | 1+i, -1+i, 2i    | Norm ≤ 36        |
 
+### URL Parameters 
+| Parameter         |	Example          |	Description     |
+|-------------------|------------------|------------------|
+| from              |	?from=-2         |	Source base     |
+| to                |	&to=2i           |	Target base     |
+| input             |	&input=42        |	Value to convert|
+
+
 # Running
 
 ```
