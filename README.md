@@ -48,3 +48,8 @@ npm run build
 # App Link
 
 To access the app online: https://apozzi.github.io/nega-converter/
+
+
+# Author
+
+Anderson Pozzi (2025).
