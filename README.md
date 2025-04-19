@@ -38,6 +38,3 @@ cd negaconverter
 npm install
 npm run dev
 ```
-
-- TODO: BETTER DESCRIPTION
-- TODO: DEPLOYMENT
