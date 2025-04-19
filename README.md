@@ -38,3 +38,13 @@ cd negaconverter
 npm install
 npm run dev
 ```
+
+# Build
+
+```
+npm run build
+```
+
+# App Link
+
+To access the app online: https://apozzi.github.io/nega-converter/
