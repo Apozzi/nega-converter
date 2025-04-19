@@ -12,7 +12,6 @@ A mathematical tool that converts numbers between unconventional numeral systems
 
 - **Negative bases** (e.g., -2/Negabinary)
 - **Complex bases** (e.g., 2i/Quater-imaginary)
-- **Non-integer bases** (e.g., Base φ/Golden ratio)
 - **Direct URL sharing** with preconfigured conversions
 
 ## Features
