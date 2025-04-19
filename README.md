@@ -1,4 +1,4 @@
-# Negaconverter 🔢🌀  
+# Negaconverter
 **Advanced Numeric Base Converter with Complex & Negative Base Support**
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/seuuser/seurepo/blob/main/LICENSE)
