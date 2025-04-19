@@ -1,5 +1,5 @@
+import { i18n } from "../../i18n/i18n";
 
-/*
 export const EPSILON = 1e-10;
 
 export function isComplexZero(z) {
@@ -55,7 +55,10 @@ export function cAbs(z) {
 }
 
 export function cRound(z) {
-    return { real: Math.round(z.real), imag: Math.round(z.imag) };
+    return {
+        real: Math.round(z.real + z.imag/2),
+        imag: Math.round(z.imag - z.real/2)
+    };
 }
 
 export function formatComplex(z) {
@@ -91,7 +94,6 @@ export function parseComplex(str) {
     const matchRealOnly = str.match(/^([+-]?(?:\d*\.\d+|\d+))$/i);
     const matchImagOnly = str.match(/^([+-]?(?:\d*\.\d+|\d+)?)i$/i);
 
-
     let real = 0;
     let imag = 0;
 
@@ -105,27 +107,25 @@ export function parseComplex(str) {
             else if (imagPart === '-') imag = -1;
             else imag = parseFloat(imagPart);
         }
-         if (!isNaN(real) && !isNaN(imag)) return { real, imag };
+        if (!isNaN(real) && !isNaN(imag)) return { real, imag };
 
     } else if (matchIOnly) {
-         imag = (matchIOnly[1] === '-') ? -1 : 1;
-         if (!isNaN(real) && !isNaN(imag)) return { real, imag };
+        imag = (matchIOnly[1] === '-') ? -1 : 1;
+        if (!isNaN(real) && !isNaN(imag)) return { real, imag };
     } else if (matchRealOnly) {
         real = parseFloat(matchRealOnly[1]);
-         if (!isNaN(real) && !isNaN(imag)) return { real, imag };
+        if (!isNaN(real) && !isNaN(imag)) return { real, imag };
     } else if (matchImagOnly) {
         let imagPart = matchImagOnly[1];
-         if (imagPart === '+' || imagPart === '') imag = 1;
-         else if (imagPart === '-') imag = -1;
-         else imag = parseFloat(imagPart);
-         if (!isNaN(real) && !isNaN(imag)) return { real, imag };
+        if (imagPart === '+' || imagPart === '') imag = 1;
+        else if (imagPart === '-') imag = -1;
+        else imag = parseFloat(imagPart);
+        if (!isNaN(real) && !isNaN(imag)) return { real, imag };
     }
-
 
     console.warn(`Could not parse complex number: "${str}"`);
     return null;
 }
-
 
 export const DIGITS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 export const MAX_NORM_FOR_DIGITS = DIGITS.length;
@@ -136,13 +136,13 @@ export function parseBase(baseStr) {
 
     if (baseStr === intBase.toString()) {
         if (intBase !== 0 && intBase !== 1 && intBase !== -1) {
-             if (intBase >= -32 && intBase <= 32) {
+            if (intBase >= -32 && intBase <= 32) {
                 return intBase;
-             } else {
-                 return { error: `Base inteira ${intBase} fora do limite [-32, 32]` };
-             }
+            } else {
+                return { error: i18n.t('baseOutOfRange', intBase) };
+            }
         } else {
-            return { error: `Base ${intBase} inválida (não pode ser 0, 1, -1)` };
+            return { error: i18n.t('invalidBaseValue', intBase) };
         }
     }
 
@@ -151,86 +151,41 @@ export function parseBase(baseStr) {
         if ((Math.abs(complexBase.real) < EPSILON && Math.abs(complexBase.imag) < EPSILON) ||
             (Math.abs(complexBase.real - 1) < EPSILON && Math.abs(complexBase.imag) < EPSILON) ||
             (Math.abs(complexBase.real + 1) < EPSILON && Math.abs(complexBase.imag) < EPSILON)) {
-             return { error: `Base ${formatComplex(complexBase)} inválida` };
+            return { error: i18n.t('invalidBase', formatComplex(complexBase)) };
         }
 
         if (complexBase.real < -32 || complexBase.real > 32 || complexBase.imag < -32 || complexBase.imag > 32) {
-            return { error: `Componentes da base ${formatComplex(complexBase)} fora do limite [-32, 32]` };
+            return { error: i18n.t('baseComponentsOutOfRange', formatComplex(complexBase)) };
         }
 
         const norm = cNorm(complexBase);
-         if (norm < 2 - EPSILON) {
-             return { error: `Base ${formatComplex(complexBase)} tem norma muito pequena (${norm.toFixed(4)})` };
-         }
+        if (norm < 2 - EPSILON) {
+            return { error: i18n.t('tooSmallBaseNorm', formatComplex(complexBase)) };
+        }
 
         return { ...complexBase, norm };
     }
 
-    return { error: `Formato de base inválido: "${baseStr}"` };
+    return { error: i18n.t('invalidBaseFormat', baseStr) };
 }
-
-export function getBaseDisplayName(base, hasParentheses = false) {
-     const baseNames = {
-         32: "Duotrigesimal", 16: "Hexadecimal", 10: "Decimal", 8: "Octal", 3: "Ternary", 2: "Binary",
-         "-2": "Negabinary", "-3": "Negaternary", "-8": "Negaoctal", "-10": "Negadecimal", "-16": "Negahexadecimal", "-32": "Negaduotrigesimal",
-         "-1+i": "Base Nega-imaginária",
-         "2i": "Base Quater-imaginária"
-     };
-
-     let name = "";
-     if (typeof base === 'number') {
-         name = baseNames[base.toString()] || `Base ${base}`;
-     } else if (typeof base === 'object' && base !== null && 'real' in base) {
-         const baseStr = formatComplex(base);
-         name = baseNames[baseStr] || `Base ${baseStr}`;
-     } else {
-         name = `Base ${base}`;
-     }
-
-     if (hasParentheses && name) {
-         return `(${name})`;
-     }
-     return name;
- }
 
 export const BASE_SUGGESTIONS = [
-    "10", "2", "16", "8", "-10", "-2", "-16",
-    "32", "-32", "3", "-3",
-    "-1+i",
-    "2i",
-    "1+i",
-    "2+i"
+    {value: "-2", name: "Negabinary"},
+    {value: "-3", name: "Negaternary"},
+    {value: "-8", name: "Negaoctal"},
+    {value: "-10", name: "Negadecimal"},
+    {value: "-16", name: "Negahexadecimal"},
+    {value: "-32", name: "Negaduotrigesimal"},
+    {value: "2", name: "Binary"},
+    {value: "3", name: "Ternary"},
+    {value: "8", name: "Octal"},
+    {value: "10", name: "Decimal"},
+    {value: "16", name: "Hexadecimal"},
+    {value: "32", name: "Duotrigesimal"},
+    {value: "-1+i", name: "Nega-imaginary"},
+    {value: "2i", name: "Quater-imaginary"}
 ];
-*/
-export const DIGITS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
-const options = [];
-for (let i = -32; i <= 32; i++) {
-    if (i !== 0 && i !== 1 && i !== -1) {
-        options.push(i);
-    }
+export function getBaseDisplayName(base, hasParentheses = false) {
+    return i18n.getBaseDisplayName(base, hasParentheses);
 }
-export const BASE_OPTIONS = options;
-
-
-export function getBaseDisplayName(baseNum, hasParentheses = false) {
-    const baseNames = {
-      32: "Duotrigesimal",
-      16: "Hexadecimal",
-      10: "Decimal",
-      8: "Octal",
-      3: "Ternary",
-      2: "Binary",
-      "-2": "Negabinary",
-      "-3": "Negaternary",
-      "-8": "Negaoctal",
-      "-10": "Negadecimal",
-      "-16": "Negahexadecimal",
-      "-32": "Negaduotrigesimal"
-    };
-    if (hasParentheses && baseNames[baseNum] ) {
-      return `(${baseNames[baseNum]})` || "";
-    }
-    return baseNames[baseNum] || "";
-  }
-  

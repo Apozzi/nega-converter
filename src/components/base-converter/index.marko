@@ -1,34 +1,167 @@
-import { DIGITS, BASE_OPTIONS, getBaseDisplayName } from "./base-converter-utils"; 
+import { DIGITS, BASE_SUGGESTIONS, parseBase, getBaseDisplayName, formatComplex, parseComplex } from "./base-converter-utils";
+import { cAdd, cSub, cMul, cDiv, cPow, cNorm, isComplexZero, EPSILON, cRound } from "./base-converter-utils";
+import { i18n } from "../../i18n/i18n";
 import './style.scss'
 
 class {
     state = {
-        inputValue: "10",
-        outputValue: "",
+        inputValue: "10",      
+        outputValue: "",  
+        fromBaseInput: "10",
+        toBaseInput: "2",
         fromBase: 10,
-        toBase: 2,
+        toBase: 2, 
         error: null,
-        allowedCharsRegex: /^[0-9A-F]$/i,
-        activeInput: 'from'
+        baseErrorFrom: null,
+        baseErrorTo: null, 
+        activeInput: 'from',
+        tempFromBase: null,
+        tempToBase: null
     }
 
     onCreate() {
-        this.updateAllowedCharsRegex('from', this.state.base);
-        this.calculateOutputValue(this.state.inputValue, this.state.fromBase, this.state.toBase);
+        i18n.init();
     }
 
-    convertDecimalToBase(dec, base) {
-        if (isNaN(dec)) return { error: "Decimal inválido" };
-        if (base > 1) {
-            return this.decimalToPositiveBase(dec, base);
-        } else if (base < -1) {
-            return this.decimalToNegativeBase(dec, base);
-        } else {
-            return { error: `Base ${base} inválida` };
+    onMount() {
+        this.readUrlParams();
+        if (!this.state.baseErrorFrom && !this.state.baseErrorTo) {
+             this.calculateValue(true); 
         }
     }
 
-    decimalToPositiveBase(dec, base) {
+    readUrlParams() {
+        const params = new URLSearchParams(window.location.search);
+        const urlFrom = params.get('from') || this.state.fromBaseInput;
+        const urlTo = params.get('to') || this.state.toBaseInput;
+        const urlInput = params.get('input') || this.state.inputValue;
+
+        this.handleBaseChange('from', { target: { value: urlFrom } }, true);
+        this.handleBaseChange('to', { target: { value: urlTo } }, true);
+        this.setState('inputValue', urlInput);
+    }
+
+
+    positiveBaseToComplexDecimal(baseStr, base) {
+        let isNegative = false;
+        if (baseStr.startsWith('-')) {
+            isNegative = true;
+            baseStr = baseStr.substring(1);
+        }
+        if (baseStr === '') return { value: { real: 0, imag: 0 } };
+
+        let decimal = 0;
+        let power = 0;
+
+        for (let i = baseStr.length - 1; i >= 0; i--) {
+            const char = baseStr[i].toUpperCase();
+            const digitValue = DIGITS.indexOf(char);
+
+            if (digitValue === -1 || digitValue >= base) {
+                 return { error: i18n.t('digitInvalidForBase', char, base) };
+            }
+            decimal += digitValue * Math.pow(base, power);
+            power++;
+        }
+         if (isNaN(decimal)) return { error: i18n.t('invalidResult') };
+        return { value: { real: (isNegative ? -decimal : decimal), imag: 0 } };
+    }
+
+    negativeBaseToComplexDecimal(baseStr, base) {
+        baseStr = baseStr.toUpperCase();
+        if (baseStr === '') return { value: { real: 0, imag: 0 } };
+
+        let decimal = 0;
+        let power = 0;
+
+        for (let i = baseStr.length - 1; i >= 0; i--) {
+            const char = baseStr[i];
+            const digitValue = DIGITS.indexOf(char);
+
+            if (digitValue === -1 || digitValue >= Math.abs(base)) {
+                 return { error: i18n.t('digitInvalidForBase', char, base) };
+            }
+            decimal += digitValue * Math.pow(base, power);
+            power++;
+        }
+        if (isNaN(decimal)) return { error: i18n.t('invalidResult') };
+        return { value: { real: decimal, imag: 0 } };
+    }
+
+     complexBaseToComplexDecimal(baseStr, base) { 
+            baseStr = baseStr.toUpperCase();
+            if (baseStr === '') return { value: { real: 0, imag: 0 } };
+
+            let result = { real: 0, imag: 0 };
+            let currentPower = { real: 1, imag: 0 }; 
+            const complexBase = { real: base.real, imag: base.imag };
+
+            for (let i = baseStr.length - 1; i >= 0; i--) {
+            const char = baseStr[i];
+            const digitValue = DIGITS.indexOf(char);
+
+
+            if (digitValue === -1 || digitValue >= base.norm) {
+                return { error: i18n.t('digitInvalidForComplexBase', char, formatComplex(base), base.norm) };
+            }
+
+                const term = cMul({ real: digitValue, imag: 0 }, currentPower);
+                result = cAdd(result, term);
+                const power = baseStr.length - 1 - i;
+                currentPower = cPow(complexBase, power);
+            }
+
+            result = { real: 0, imag: 0 };
+            let powerVal = 0;
+            for (let i = baseStr.length - 1; i >= 0; i--) {
+                const char = baseStr[i];
+                const digitValue = DIGITS.indexOf(char);
+
+                if (digitValue === -1 || digitValue >= base.norm) {
+                    return { error: `Dígito '${char}' inválido para base ${formatComplex(base)} (norma ${base.norm.toFixed(4)}, máx dígito ${Math.floor(base.norm - EPSILON)})` };
+                }
+
+                const currentBasePower = cPow(complexBase, powerVal);
+                const term = cMul({ real: digitValue, imag: 0 }, currentBasePower);
+                result = cAdd(result, term);
+                powerVal++;
+            }
+
+            if (isNaN(result.real) || isNaN(result.imag)) 
+            return { error: i18n.t('error') };
+
+            return { value: result };
+     }
+
+
+    convertBaseToComplexDecimal(valueStr, base) {
+        if (valueStr === null || valueStr === undefined || valueStr.trim() === '') return { value: { real: 0, imag: 0 } };
+        if (valueStr === '-' && typeof base === 'number' && base > 1) return { value: null };
+        if (valueStr === '-') return { error: i18n.t('negativeSignInvalid') };
+
+        if (typeof base === 'number') {
+            if (base > 1) {
+                return this.positiveBaseToComplexDecimal(valueStr, base);
+            } else if (base < -1) {
+                return this.negativeBaseToComplexDecimal(valueStr, base);
+            } else {
+                return { error: i18n.t('invalidBase', base) };
+            }
+        } else if (typeof base === 'object' && base !== null && 'real' in base) {
+             if (valueStr.startsWith('-')) {
+                  return { error: "Representação em base complexa não usa sinal '-' externo" };
+             }
+            return this.complexBaseToComplexDecimal(valueStr, base);
+        } else {
+            return { error: i18n.t('error') };
+        }
+    }
+
+    complexDecimalToPositiveBase(z, base) {
+        if (Math.abs(z.imag) > EPSILON || !Number.isInteger(z.real)) {
+              return { error: i18n.t('cannotConvertToBase', formatComplex(z), base) };
+        }
+        let dec = z.real;
         if (dec === 0) return { value: "0" };
 
         let result = "";
@@ -40,11 +173,18 @@ class {
             result = DIGITS[remainder] + result;
             dec = Math.floor(dec / base);
         }
+        if (result === "") result = "0"; 
 
         return { value: (isNegative ? "-" : "") + result };
     }
 
-    decimalToNegativeBase(dec, base) {
+    complexDecimalToNegativeBase(z, base) {
+
+        if (Math.abs(z.imag) > EPSILON || !Number.isInteger(z.real)) {
+             return { error: i18n.t('cannotConvertToBase', formatComplex(z), base) };
+        }
+        let dec = z.real;
+
         if (dec === 0) return { value: "0" };
         if (base >= -1) return { error: `Base ${base} inválida para negabase` };
 
@@ -52,272 +192,411 @@ class {
         let currentDec = dec;
         const absBase = Math.abs(base);
 
-        while (currentDec !== 0) {
+        let iterations = 0;
+        const maxIterations = 100; 
+
+        while (currentDec !== 0 && iterations < maxIterations) {
             let remainder = currentDec % base;
+            currentDec = Math.trunc(currentDec / base);
 
             if (remainder < 0) {
                 remainder += absBase;
+                currentDec++;
             }
+
             if (remainder < 0 || remainder >= absBase) {
-                return { error: "Erro interno no cálculo da negabase." };
+                return { error: i18n.t('internalError', remainder) };
             }
+
             result = DIGITS[remainder] + result;
-            currentDec = (currentDec - remainder) / base;
-            if (!Number.isInteger(currentDec)) {
-                return { error: "Erro interno no cálculo do quociente." };
+            iterations++;
+        }
+         if (iterations >= maxIterations && currentDec !== 0) 
+            return { error: i18n.t('negabaseNotTerminated') };
+
+        return { value: result || "0" };
+    }
+
+    complexDecimalToComplexBase(z, base) {
+        if (Math.abs(z.imag) > EPSILON || !Number.isInteger(z.real)) {
+            return {
+            error: `Não é possível converter ${formatComplex(z)} para base ${formatComplex(
+                base
+            )} (requer inteiro real)`
+            };
+        }
+
+        if (z.real === 0 && Math.abs(z.imag) < EPSILON) {
+            return { value: "0" };
+        }
+
+        if (Math.abs(base.real) < EPSILON && Math.abs(base.imag) > EPSILON) {
+            const b = base.imag;
+            const normInt = Math.round(b * b);
+            let current = { ...z };
+            const digits = [];
+
+            while (
+            Math.abs(current.real) > EPSILON ||
+            Math.abs(current.imag) > EPSILON
+            ) {
+            const r = ((current.real % normInt) + normInt) % normInt;
+            digits.unshift(DIGITS[r]);
+            const newReal = current.imag / b;
+            const newImag = -(current.real - r) / b;
+            current = { real: newReal, imag: newImag };
+            }
+
+            return { value: digits.join("") };
+        }
+        const maxIterations = 100000;
+        
+        let current = { ...z };
+        const normInt = Math.floor(base.norm);
+        const digits = [];
+        let iterations = 0;
+
+        while (
+            (Math.abs(current.real) > EPSILON ||
+            Math.abs(current.imag) > EPSILON) && 
+            iterations < maxIterations
+        ) {
+            iterations++;
+            let found = false;
+            for (let d = 0; d < normInt; d++) {
+            const diff = cSub(current, { real: d, imag: 0 });
+            const div = cDiv(diff, base);
+            const realRounded = Math.round(div.real);
+            const imagRounded = Math.round(div.imag);
+            if (
+                Math.abs(div.real - realRounded) < EPSILON &&
+                Math.abs(div.imag - imagRounded) < EPSILON
+            ) {
+                digits.unshift(DIGITS[d]);
+                current = { real: realRounded, imag: imagRounded };
+                found = true;
+                break;
+            }
+            }
+
+            if (!found || iterations >= maxIterations) {
+            return {
+                error: i18n.t('conversionToComplexBaseFailed', formatComplex(base))
+            };
             }
         }
-        return { value: result };
+
+        return { value: digits.join("") };
     }
 
 
-    convertBaseToDecimal(baseStr, base) {
-        baseStr = baseStr.toUpperCase();
-        if (base > 1) {
-            return this.positiveBaseToDecimal(baseStr, base);
-        } else if (base < -1) {
-            return this.negativeBaseToDecimal(baseStr, base);
+    findBestDigit(z, base, baseNorm) {
+        let bestD = 0;
+        let minNorm = Infinity;
+        let bestZ = z;
+
+        for (let d = 0; d < baseNorm; d++) {
+            const tempZ = cDiv(cSub(z, { real: d, imag: 0 }), base);
+            const norm = cNorm(tempZ);
+            if (norm < minNorm) {
+                minNorm = norm;
+                bestD = d;
+                bestZ = tempZ;
+            }
+        }
+
+        return { d: bestD, newZ: bestZ };
+    }
+
+
+    convertComplexDecimalToBase(z, base) {
+        if (z === null) return { value: ''};
+
+        if (typeof base === 'number') {
+            if (base > 1) {
+                return this.complexDecimalToPositiveBase(z, base);
+            } else if (base < -1) {
+                return this.complexDecimalToNegativeBase(z, base);
+            } else {
+                return { error: i18n.t('invalidBase', base) };
+            }
+        } else if (typeof base === 'object' && base !== null && 'real' in base) {
+             if (base.norm > DIGITS.length) {
+                 return { error: i18n.t('baseNormTooLarge', base.norm) };
+             }
+            return this.complexDecimalToComplexBase(z, base);
         } else {
-            return { error: `Base ${base} inválida` };
+             return { error: i18n.t('error') };
         }
     }
 
-    positiveBaseToDecimal(baseStr, base) {
-        let isNegative = false;
-        if (baseStr.startsWith('-')) {
-            isNegative = true;
-            baseStr = baseStr.substring(1);
-        }
-
-        let decimal = 0;
-        let power = 0;
-
-        for (let i = baseStr.length - 1; i >= 0; i--) {
-            const char = baseStr[i];
-            const digitValue = DIGITS.indexOf(char);
-
-            if (digitValue === -1 || digitValue >= base) return { error: `Dígito '${char}' inválido para base ${base}` };
-            decimal += digitValue * Math.pow(base, power);
-            power++;
-        }
-        return { value: (isNegative ? -decimal : decimal).toString() };
-    }
-
-    negativeBaseToDecimal(baseStr, base) {
-        let decimal = 0;
-        let power = 0;
-
-        for (let i = baseStr.length - 1; i >= 0; i--) {
-            const char = baseStr[i];
-            const digitValue = DIGITS.indexOf(char);
-            if (digitValue === -1 || digitValue >= Math.abs(base)) return { error: `Dígito '${char}' inválido para base ${base}` };
-
-            decimal += digitValue * Math.pow(base, power);
-            power++;
-        }
-        return { value: decimal.toString() };
-    }
-
-    handleFromBaseChange(event) {
-        const newBase = parseInt(event.target.value, 10);
-        this.state.fromBase = newBase;
-        this.updateAllowedCharsRegex('from', newBase);
-        this.calculateOutputValue(this.state.inputValue, newBase, this.state.toBase);
-    }
-
-    handleToBaseChange(event) {
-        const newBase = parseInt(event.target.value, 10);
-        this.state.toBase = newBase;
-        this.calculateOutputValue(this.state.inputValue, this.state.fromBase, newBase);
-    }
-
-    processInputValue(value, base) {
-        const cleanedValue = value.replace(/[\r\n]+/g, '');
-        if (cleanedValue === '-' && base > 1) return '-';
+    processInputString(valueStr, base) {
+        const cleanedValue = valueStr.replace(/[\r\n]+/g, '').trim();
         if (cleanedValue === '') return '';
-        const absBase = Math.abs(base);
-        const allowedChars = DIGITS.substring(0, absBase);
-        const regexStr = `^-?[${allowedChars}]*$`;
-        const regex = new RegExp(regexStr, 'i');
-        if (!regex.test(cleanedValue)) return null;
-        return cleanedValue.toUpperCase();
+
+        if (typeof base === 'number' && base > 1) {
+             if (cleanedValue === '-') return '-'; 
+             const absBase = base;
+             const allowedChars = DIGITS.substring(0, absBase);
+             const regex = new RegExp(`^-?[${allowedChars}]*$`, 'i');
+             if (regex.test(cleanedValue)) {
+                 return cleanedValue.toUpperCase();
+             }
+        }
+        else if ((typeof base === 'number' && base < -1) || (typeof base === 'object' && base !== null)) {
+            const effectiveBaseLimit = (typeof base === 'number') ? Math.abs(base) : base.norm;
+             if (effectiveBaseLimit > DIGITS.length) {
+                  console.warn(`Cannot strictly validate digits for base ${base} with norm/abs ${effectiveBaseLimit} > ${DIGITS.length}`);
+                   const basicRegex = /^[0-9A-Z]*$/i;
+                   if(basicRegex.test(cleanedValue)) return cleanedValue.toUpperCase();
+             } else {
+                 const allowedChars = DIGITS.substring(0, Math.ceil(effectiveBaseLimit)); 
+                 const regex = new RegExp(`^[${allowedChars}]*$`, 'i');
+                 if (regex.test(cleanedValue)) {
+                     return cleanedValue.toUpperCase();
+                 }
+             }
+        }
+        return null; 
     }
+
+     processDecimalInputString(valueStr) {
+         const cleanedValue = valueStr.replace(/[\r\n]+/g, '').trim();
+         if (cleanedValue === '') return '';
+         if (cleanedValue === '-') return '-'; 
+
+         const complexVal = parseComplex(cleanedValue);
+         if (complexVal !== null) {
+             return cleanedValue;
+         }
+         if (/^-?\d*\.?\d*$/.test(cleanedValue)) {
+             return cleanedValue; 
+         }
+
+         return null; 
+     }
+
 
     handleInputChange(event) {
         const rawValue = event.target.value;
         const isFromInput = event.target.id === 'from-input';
+        const stateKey = isFromInput ? 'inputValue' : 'outputValue';
         const currentBase = isFromInput ? this.state.fromBase : this.state.toBase;
-        const processedValue = this.processInputValue(rawValue, currentBase);
 
-        if (processedValue === null) {
-            event.target.value = isFromInput ? this.state.inputValue : this.state.outputValue;
-            return;
-        }
-
-        if (isFromInput) {
-            this.state.inputValue = processedValue;
-            this.calculateOutputValue(processedValue, this.state.fromBase, this.state.toBase);
+        const processedValue = this.processInputString(rawValue, currentBase);
+        if (processedValue !== null) {
+            this.setState({
+                [stateKey]: processedValue,
+                activeInput: isFromInput ? 'from' : 'to'
+            });
+            this.calculateValue(isFromInput);
         } else {
-            this.state.outputValue = processedValue;
-            this.calculateInputValue(processedValue, this.state.toBase, this.state.fromBase);
+            event.target.value = this.state[stateKey];
         }
-        this.state.activeInput = isFromInput ? 'from' : 'to';
+        this.update();
     }
 
-    calculateOutputValue(inputValue, fromBase, toBase) {
-        if (inputValue === '') {
-            this.state.outputValue = '';
-            this.state.error = null;
-            return;
-        }
 
-        const decimalResult = this.convertBaseToDecimal(inputValue, fromBase);
+    handleBaseChange(which, e) {
+        const value = e?.target?.value;
+        const parsed = parseBase(value);
+        this.setState('error', null);
 
-        if (decimalResult.error) {
-            this.state.error = decimalResult.error;
-            this.state.outputValue = 'Erro';
-            return;
-        }
+        const baseKey = which === 'from' ? 'fromBase' : 'toBase';
+        const errorKey = which === 'from' ? 'baseErrorFrom' : 'baseErrorTo';
 
-        const decimalValue = parseFloat(decimalResult.value);
-        if (isNaN(decimalValue) || !Number.isInteger(decimalValue)) {
-            if (inputValue.trim() !== '' && inputValue !== '-') {
-                this.state.error = 'Valor de entrada inválido para a base selecionada.';
-            } else {
-                this.state.error = null;
-            }
-            this.state.outputValue = '';
-            return;
-        }
-
-        const resultToBase = this.convertDecimalToBase(decimalValue, toBase);
-        if (resultToBase.error) {
-            this.state.error = resultToBase.error;
-            this.state.outputValue = 'Erro';
+        this.state[`${baseKey}Input`] = value;
+        
+        if (parsed.error) {
+            this.state[errorKey] = parsed.error;
+            this.state[baseKey] = null;
+            this.state.error = parsed.error; 
+            this.update();
         } else {
-            this.state.error = null;
-            this.state.outputValue = resultToBase.value;
+            this.state[errorKey] = null;
+            this.state[baseKey] = parsed;
+            this.calculateValue(this.state.activeInput === 'from');
         }
     }
 
-    calculateInputValue(outputValue, toBase, fromBase) {
-        if (outputValue === '') {
-            this.state.inputValue = '';
-            this.state.error = null;
-            return;
-        }
-
-        const decimalResult = this.convertBaseToDecimal(outputValue, toBase);
-
-        if (decimalResult.error) {
-            this.state.error = decimalResult.error;
-            this.state.inputValue = 'Erro';
-            return;
-        }
-
-        const decimalValue = parseFloat(decimalResult.value);
-        if (isNaN(decimalValue) || !Number.isInteger(decimalValue)) {
-            if (outputValue.trim() !== '' && outputValue !== '-') {
-                this.state.error = 'Valor de saída inválido para a base selecionada.';
-            } else {
-                this.state.error = null;
-            }
-            this.state.inputValue = '';
-            return;
-        }
-
-        const resultFromBase = this.convertDecimalToBase(decimalValue, fromBase);
-        if (resultFromBase.error) {
-            this.state.error = resultFromBase.error;
-            this.state.inputValue = 'Erro';
-        } else {
-            this.state.error = null;
-            this.state.inputValue = resultFromBase.value;
-        }
+    handleConversionError(error, targetKey) {
+        this.setState({
+            error,
+            [targetKey]: i18n.t('error')
+        });
     }
 
-    updateAllowedCharsRegex(base) {
-        const absBase = Math.abs(base);
-        const allowed = DIGITS.substring(0, absBase);
-        const regex = new RegExp(`^[${allowed}]$`, 'i');
-        this.setState('allowedCharsRegex', regex);
+    calculateValue(fromInputToOutput) {
+        const { fromBase, toBase } = this.state;
+        const [sourceKey, targetKey] = fromInputToOutput ? ['inputValue', 'outputValue'] : ['outputValue', 'inputValue'];
+
+        if (!fromBase || !toBase) {
+            this.setState({
+                [targetKey]: '',
+                error: this.state.baseErrorFrom || this.state.baseErrorTo || i18n.t('invalidBaseValue')
+            });
+            return;
+        }
+        this.setState('error', null);
+
+        const sourceValue = this.state[sourceKey];
+        const decimalResult = this.convertBaseToComplexDecimal(sourceValue, fromInputToOutput ? fromBase : toBase);
+        if (decimalResult.error) return this.handleConversionError(decimalResult.error, targetKey);
+
+        const targetResult = this.convertComplexDecimalToBase(decimalResult.value, fromInputToOutput ? toBase : fromBase);
+        if (targetResult.error) return this.handleConversionError(finalResult.error, targetKey);
+
+        this.setState({
+            [targetKey]: targetResult.value || '',
+            error: null
+        });
     }
 
     handleSwapBases() {
-        const tempFromBase = this.state.fromBase;
-        const tempToBase = this.state.toBase;
-        const tempInputValue = this.state.inputValue;
-        const tempOutputValue = this.state.outputValue;
+        const swapPairs = [
+            ['fromBase', 'toBase'],
+            ['fromBaseInput', 'toBaseInput'],
+            ['inputValue', 'outputValue'],
+            ['baseErrorFrom', 'baseErrorTo']
+        ];
 
-        this.state.fromBase = tempToBase;
-        this.state.toBase = tempFromBase;
-        this.state.inputValue = tempOutputValue;
-        this.state.outputValue = tempInputValue;
-        this.state.error = null;
+        swapPairs.forEach(([a, b]) => {
+            [this.state[a], this.state[b]] = [this.state[b], this.state[a]];
+        });
         this.state.activeInput = this.state.activeInput === 'from' ? 'to' : 'from';
-        this.update();
+        this.calculateValue(this.state.activeInput === 'from');
+
+    }
+
+    getTempKey(which) {
+        return which === 'from' ? 'tempFromBase' : 'tempToBase';
+    }
+
+    /*
+        Gambiarra para fazer o Datalist mostrar todos os valores
+        Básicamente, ao focar no input, o valor é colocado como ' ' (string com espaço)
+        Vale lembrar que só funciona com input com espaço! (Vazio ele n mostra nada)
+        Também é importante mudar o valor no e.target.value pois não funciona com o value do state apenas.
+        No blur, se o valor for ' ' (string com espaço), ele volta para o valor temporário
+    */
+    handleBaseFocus(which, e) {
+        const key = `${which}BaseInput`;
+        this.setState(this.getTempKey(which), this.state[key]);
+        this.setState(key, ' ');
+        e.target.value = ' ';
+    }
+
+    handleBaseBlur(which) {
+        const key = `${which}BaseInput`;
+        const tempKey = this.getTempKey(which);
+        if (!this.state[key].trim()) {
+            this.handleBaseChange(which, { target: { value: this.state[tempKey] } });
+        }
+        this.setState(tempKey, null);
     }
 }
 
 
 <div.converter-container>
-    <h1.converter-title>Conversor de Bases Numéricas</h1>
-    <div.base-selector>
-        <label for="base-select">Converter de</label>
-        <select id="from-base-select" value=state.fromBase onChange('handleFromBaseChange')>
-            <for|baseNum| of=BASE_OPTIONS>
-                <option value=baseNum selected=(baseNum === state.fromBase)>
-                   Base ${baseNum} (${getBaseDisplayName(baseNum)})
-                </option>
-            </for>
-        </select>
-        <label for="base-select">para</label>
-        <select id="to-base-select" value=state.toBase onChange('handleToBaseChange')>
-            <for|baseNum| of=BASE_OPTIONS>
-                <option value=baseNum selected=(baseNum === state.toBase)>
-                    Base ${baseNum} ${getBaseDisplayName(baseNum, true)}
-                </option>
-            </for>
-        </select>
+    <h1.converter-title>${i18n.t('title')}</h1>
 
-        <button
-            id="swap-button"
-            class="swap-button"
-            onClick('handleSwapBases')
-            aria-label="Inverter bases e valores"
-            title="Inverter bases e valores">
-                ⇄
+    <div.base-selector>
+         <div.base-input-group>
+             <label for="from-base-input">${i18n.t('convertFrom')}</label>
+             <input
+                 id="from-base-input"
+                 type="text"
+                 value=state.fromBaseInput
+                 onInput('handleBaseChange', 'from')
+                 list="base-suggestions-list"
+                 class=(state.baseErrorFrom ? 'input-error' : '')
+                 placeholder="Base (ex: 10, -2, 1+i)"
+                 autocomplete="off"
+                 spellcheck="false"
+                 aria-describedby=(state.baseErrorFrom ? 'from-base-error' : undefined)
+                 onFocus('handleBaseFocus', 'from')
+                 onBlur('handleBaseBlur', 'from')
+             />
+              <if(state.baseErrorFrom)>
+                 <span.error-message id="from-base-error">${state.baseErrorFrom}</span>
+              </if>
+         </div>
+
+         <div.base-input-group>
+             <label for="to-base-input">${i18n.t('to')}</label>
+             <input
+                 id="to-base-input"
+                 type="text"
+                 value=state.toBaseInput
+                 onInput('handleBaseChange', 'to')
+                 list="base-suggestions-list"
+                 class=(state.baseErrorTo ? 'input-error' : '')
+                 placeholder="Base (ex: 2, -16, -1+i)"
+                 autocomplete="off"
+                 spellcheck="false"
+                 aria-describedby=(state.baseErrorTo ? 'to-base-error' : undefined)
+                 onFocus('handleBaseFocus', 'to')
+                 onBlur('handleBaseBlur', 'to')
+             />
+             <if(state.baseErrorTo)>
+                 <span.error-message id="to-base-error">${state.baseErrorTo}</span>
+             </if>
+         </div>
+
+         <button
+             id="swap-button"
+             class="swap-button"
+             onClick('handleSwapBases')
+             aria-label=(i18n.t('swapButtonLabel'))
+             title=(i18n.t('swapButtonLabel'))
+             disabled=(!state.fromBase || !state.toBase)
+         >
+            ⇄
         </button>
     </div>
 
-    <div.inputs-area>
-      <div.input-card>
-        <label for="from-input">${getBaseDisplayName(state.fromBase) || (`Base ${state.fromBase}`)}</label>
-        <textarea
-            id="from-input"
-            key="from-input"
-            rows="2"
-            value=state.inputValue
-            onInput('handleInputChange')
-            placeholder="Digite o valor"
-            autocomplete="off"
-            spellcheck="false"
-        >${state.inputValue}</textarea>
-      </div>
+     <datalist id="base-suggestions-list">
+        <for|suggestion| of=BASE_SUGGESTIONS>
+            <option value=suggestion.value>${suggestion.value} (${suggestion.name})</option>
+        </for>
+    </datalist>
 
-      <div.input-card>
-        <label for="to-input">${getBaseDisplayName(state.toBase) || (`Base ${state.toBase}`)}</label>
-        <textarea
-            id="to-input"
-            key="to-input"
-            rows="2"
-            value=state.outputValue
-            readonly
-            placeholder="Resultado"
-            spellcheck="false"
-            autocomplete="off"
-        >${state.outputValue}</textarea>
-      </div>
+     <if(state.error && !state.baseErrorFrom && !state.baseErrorTo)>
+         <div.error-message.main-error>Erro: ${state.error}</div>
+     </if>
+
+    <div.inputs-area>
+         <div class=`input-card ${state.activeInput === 'from' ? 'active' : ''}`>
+             <label for="from-input">${state.fromBase ? (getBaseDisplayName(state.fromBase) || `Base ${state.fromBaseInput}`) : 'Base Origem Inválida'}</label>
+             <textarea
+                 id="from-input"
+                 key="from-input-${state.fromBaseInput}" 
+                 rows="3"
+                 value=state.inputValue
+                 onInput('handleInputChange')
+                 placeholder=(state.fromBase ? i18n.t('fromValuePlaceholder', i18n.getBaseDisplayName(state.fromBase)) : i18n.t('fromValuePlaceholder', ''))
+                 autocomplete="off"
+                 spellcheck="false"
+                 readonly=(!state.fromBase || !state.toBase || !!state.baseErrorFrom)
+                 aria-invalid=(state.error && state.activeInput === 'from' ? 'true' : 'false')
+             >${state.inputValue}</textarea>
+         </div>
+
+          <div class=`input-card ${state.activeInput === 'to' ? 'active' : ''}`>
+             <label for="to-input">${state.toBase ? (getBaseDisplayName(state.toBase) || `Base ${state.toBaseInput}`) : 'Base Destino Inválida'}</label>
+             <textarea
+                 id="to-input"
+                 key="to-input-${state.toBaseInput}"
+                 rows="3"
+                 value=state.outputValue
+                 onInput('handleInputChange') 
+                 placeholder=(state.toBase ? i18n.t('toValuePlaceholder', i18n.getBaseDisplayName(state.toBase)) : i18n.t('toValuePlaceholder', ''))
+                 autocomplete="off"
+                 spellcheck="false"
+                 readonly=(!state.fromBase || !state.toBase || !!state.baseErrorTo)
+                 aria-invalid=(state.error && state.activeInput === 'to' ? 'true' : 'false')
+             >${state.outputValue}</textarea>
+         </div>
     </div>
 </div.converter-container>
 
