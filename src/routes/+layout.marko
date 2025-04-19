@@ -1,21 +1,67 @@
 <!doctype html>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=Limelight&family=Press+Start+2P&family=Silkscreen:wght@400;700&display=swap" rel="stylesheet">
-<html lang="en">
+<html lang="en" itemscope itemtype="https://schema.org/WebApplication">
 <head>
   <meta charset="UTF-8">
   <link rel="icon" type="image/png" sizes="32x32" href="./favicon.png">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Negaconverter">
-  <title>${$global.meta.pageTitle || 'Negaconverter'}</title>
+  
+  <!-- Meta tags para SEO -->
+  <title>Negaconverter - Conversor Avançado de Bases Numéricas</title>
+  <meta name="description" content="Conversor de bases numéricas com suporte para bases complexas (ex: 2i), negativas (ex: -2) e especiais. Converta entre diferentes sistemas numéricos com parâmetros via URL.">
+  
+  <!-- Open Graph / Facebook -->
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Negaconverter - Conversor de Bases Matemáticas Avançado">
+  <meta property="og:description" content="Converta números entre bases complexas, negativas e exóticas diretamente pela URL. Suporta bases como -2 (negabinário), 2i (quater-imaginário) e mais.">
+  <meta property="og:image" content="https://example.com/social-image.png">
+
+  <!-- Twitter -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Negaconverter - Ferramenta Matemática para Bases Não Convencionais">
+  <meta name="twitter:description" content="Conversor numérico online que aceita parâmetros na URL (from, to, input) para conversão direta entre bases complexas e negativas.">
+
+  <!-- Schema.org -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "HowTo",
+    "name": "Como usar o Negaconverter via URL",
+    "description": "Instruções para conversão numérica usando parâmetros na URL",
+    "step": [
+      {
+        "@type": "HowToStep",
+        "text": "Use o parâmetro 'from' para especificar a base de origem (ex: ?from=-2)"
+      },
+      {
+        "@type": "HowToStep",
+        "text": "Use o parâmetro 'to' para especificar a base destino (ex: &to=2i)"
+      },
+      {
+        "@type": "HowToStep",
+        "text": "Use o parâmetro 'input' para o valor a ser convertido (ex: &input=1010)"
+      }
+    ]
+  }
+  </script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=Limelight&family=Press+Start+2P&family=Silkscreen:wght@400;700&display=swap" rel="stylesheet">
 </head>
+
 <body>
+  <div hidden aria-hidden="true">
+    <p>Parâmetros de URL suportados: from (base origem), to (base destino), input (valor de entrada)</p>
+    <p>Exemplo: ?from=10&to=2i&input=42</p>
+    <p>Bases suportadas: Inteiras (-32 a 32), Complexas (ex: 1+i), Bases Negativas (ex: -2)</p>
+  </div>
+
   <${input.renderBody}/>
+
+  <footer role="contentinfo">
+    © 2025 Anderson R. Pozzi. Conversor de Bases Numéricas com suporte para números complexos e bases negativas.
+  </footer>
 </body>
-<footer>
-  © 2025 Anderson R. Pozzi. All rights reserved.
-</footer>
 </html>
 
 style {
