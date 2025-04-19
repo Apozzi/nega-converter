@@ -22,7 +22,7 @@ A mathematical tool that converts numbers between unconventional numeral systems
 | Negative Integer  | -2, -10, -16     | 0 to (abs(base)-1) |
 | Complex           | 1+i, -1+i, 2i    | Norm ≤ 36        |
 
-### URL Parameters (Optional for URL Calls)
+### URL Parameters (Optional)
 | Parameter         |	Example          |	Description     |
 |-------------------|------------------|------------------|
 | from              |	?from=-2         |	Source base     |
