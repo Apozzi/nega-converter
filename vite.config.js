@@ -7,10 +7,6 @@ export default defineConfig({
     marko({
       adapter: staticAdapter(),
       base: '/nega-converter/',
-      build: {
-        outDir: 'dist',
-        emptyOutDir: true,
-      },
     }),
   ],
 });
