@@ -30,9 +30,11 @@ A mathematical tool that converts numbers between unconventional numeral systems
 | input             |	&input=42        |	Value to convert|
 
 
-# Running
+# Installing/Running
 
 ```
+git clone https://github.com/Apozzi/nega-converter.git
+cd negaconverter
 npm install
 npm run dev
 ```
