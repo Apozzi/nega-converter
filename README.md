@@ -15,7 +15,7 @@ A mathematical tool that converts numbers between unconventional numeral systems
 - **Non-integer bases** (e.g., Base φ/Golden ratio)
 - **Direct URL sharing** with preconfigured conversions
 
-## Features ✨
+## Features
 
 ### Base Support
 | Type              | Examples         | Digits Range     |
